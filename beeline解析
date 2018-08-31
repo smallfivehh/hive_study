@@ -1,3 +1,26 @@
+thrift是一种c/s的架构体系.在最上层是用户自行实现的业务逻辑代码.第二层是由thrift编译器自动生成的代码，主要用于结构化数据的解析，发送和接收。TServer主要任务是高效的接受客户端请求，并将请求转发给Processor处理。Processor负责对客户端的请求做出响应，包括RPC请求转发，调用参数解析和用户逻辑调用，返回值写回等处理。从TProtocol以下部分是thirft的传输协议和底层I/O通信。TProtocol是用于数据类型解析的，将结构化数据转化为字节流给TTransport进行传输。TTransport是与底层数据传输密切相关的传输层，负责以字节流方式接收和发送消息体，不关注是什么数据类型。底层IO负责实际的数据传输，包括socket、文件和压缩数据流等。
+
+Thrift实例：https://www.cnblogs.com/fingerboy/p/6424248.html
+
+HiveServer2学习：
+1.架构：基于Thrift的Hive服务是HiveServer2的核心，负责维护Hive查询（例如，从Beeline）。Thrift是构建跨平台服务的RPC框架。其堆栈由4层组成：server，Transport，Protocol和处理器。可以在 https://thrift.apache.org/docs/concepts 找到有关分层的更多详细信息。
+1.1 Server：HiveServer2在TCP模式下使用TThreadPoolServer(来自Thrift)，在HTTP模式下使用Jetty Server。TThreadPoolServer为每个TCP连接分配一个工作线程。即使连接处于空闲状态，每个线程也始终与连接相关联。因此，由于大量并发
+连接产生大量线程，从而导致潜在的性能问题。在将来，HiveServer2可能切换到TCP模式下的另一个不同类型的Server上，例如TThreadedSelectorServer。
+1.2 Transport：如果客户端和服务器之间需要代理(例如，为了负载均衡或出于安全原因)，则需要HTTP模式。这就是为什么它与TCP模式被同样支持的原因。可以通过Hive配置属性hive.server2.transport.mode指定Thrift服务的传输模式。
+1.3 Protocol：协议责序列化和反序列化。HiveServer2目前正在使用TBinaryProtocol作为Thrift的协议进行序列化。 在未来，可以更多考虑其他协议，如TCompactProtocol，可以考虑更多的性能评估。
+1.4 处理器：处理流程是处理请求的应用程序逻辑。例如，ThriftCLIService.ExecuteStatement()方法实现了编译和执行Hive查询的逻辑。
+2.依赖：
+Metastore metastore可以配置为嵌入式（与HiveServer2相同的过程）或远程服务器（也是基于Thrift的服务）。 HS2与查询编译所需的元数据相关。
+Hadoop cluster HiveServer2准备了各种执行引擎（MapReduce/Tez/Spark）的物理执行计划，并将作业提交到Hadoop集群执行。
+
+JDBC Client
+使用JDBC驱动程序让客户端与HiveServer2进行交互
+JDBC客户端（例如，Beeline）通过初始化传输连接(例如，TCP连接)，再调用OpenSession API来获取SessionHandle来创建HiveConnection。 会话是从服务器端创建的。
+执行HiveStatement（遵循JDBC标准），并且Thrift客户端调用ExecuteStatement API。 在API调用中，SessionHandle信息与查询信息一起传递给服务器。
+HiveServer2服务器接收请求，并让驱动程序（CommandProcessor）进行查询解析和编译。该驱动程序启动后台工作，将与Hadoop交互，然后立即向客户端返回响应。这是ExecuteStatement API的异步设计。响应包含从服务器端创建的OperationHandle。
+客户端使用OperationHandle与HiveServer2交互以轮询查询执行的状态。
+
+
 Beeline执行解析：
 Beeline调用/opt/client/Hive/Beeline/bin/下的beeline，拼凑参数DEFAULT_PARAMS="-u ${CLIENT_HIVE_URI} -n '' -p ''"，然后调用hive --service beeline "$@" $DEFAULT_PARAMS
 调用/opt/client/Hive/Beeline/bin/ext/下的.sh文件，其中beeline.sh为启动脚本，当为安全模式时，调用/opt/client/KrbClient/kerberos/bin下的hadoop_security_func.sh，进行验证启动
