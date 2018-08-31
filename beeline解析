@@ -1,0 +1,6 @@
+Beeline执行解析：
+Beeline调用/opt/client/Hive/Beeline/bin/下的beeline，拼凑参数DEFAULT_PARAMS="-u ${CLIENT_HIVE_URI} -n '' -p ''"，然后调用hive --service beeline "$@" $DEFAULT_PARAMS
+调用/opt/client/Hive/Beeline/bin/ext/下的.sh文件，其中beeline.sh为启动脚本，当为安全模式时，调用/opt/client/KrbClient/kerberos/bin下的hadoop_security_func.sh，进行验证启动
+
+Beeline.java、BeelineOpts.java、ReflectiveCommandHandler.java、Commands.java
+主要类为Commands.java，其中包括connect等方法
